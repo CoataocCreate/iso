@@ -207,17 +207,28 @@ class Lexer:
         end = len(text)
         start_pos = pos
 
-        num = 0
+        num_chars = []
+        has_dot = False  # Tracks if there's a decimal point in the number
+
         while pos < end:
             char = text[pos]
-            if not char.isdigit():
+            if char.isdigit():
+                num_chars.append(char)
+            elif char == '.' and not has_dot:  # Allow only one dot
+                num_chars.append(char)
+                has_dot = True
+            else:
                 break
-            num = num * 10 + (ord(char) - 48)
             pos += 1
 
         self.pos = pos
         self.current_char = text[pos] if pos < end else None
-        return Token("NUMBER", num, start_pos)
+
+        num_str = ''.join(num_chars)
+        if has_dot:  # If it contains a dot, treat it as a float
+            return Token("FLOAT", float(num_str), start_pos)
+        else:  # Otherwise, treat it as an integer
+            return Token("NUMBER", int(num_str), start_pos)
 
     def string(self) -> Token:
         """Handle string literals without transformations."""
@@ -259,7 +270,7 @@ class Lexer:
         """Handles identifiers, numbers, and keywords."""
         result = ""
         start_pos = self.pos
-        while self.current_char is not None and (self.current_char.isalnum() or self.current_char in "_$&|`?~;."):
+        while self.current_char is not None and (self.current_char.isalnum() or self.current_char in "_$&|`?~;"):
 
             result += self.current_char
             self.advance()
@@ -384,7 +395,7 @@ class Lexer:
                 else:
                     return self.identifier()
             
-            if self.current_char.isalnum() or self.current_char in "_$&|`?~;.":
+            if self.current_char.isalnum() or self.current_char in "_$&|`?~;":
                return self.identifier()
 
             if self.current_char == '+':
@@ -869,6 +880,10 @@ class Parser:
             prefixers.append(token.value)
             self.eat("PREFIXER")
             token = self.current_token
+
+        if token.type == "FLOAT":  # Add support for FLOAT tokens
+            self.eat("FLOAT")
+            return Num(token)
 
         if token.type == "NUMBER":
             self.eat("NUMBER")
